@@ -1,0 +1,77 @@
+--- 
+- hosts: cuckoo
+  become: yes
+  become_user: root
+  vars:
+  tasks:
+
+    - name: Update cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600      
+
+    - name: Upgrade packages
+      apt: 
+        upgrade: full
+
+    - name: Install necessary packages
+      apt:
+        name: ['git','software-properties-common','vim','curl','tree','htop','python-pip','python','python-dev','libffi-dev','libssl-dev','python-virtualenv','python-setuptools','libjpeg-dev','zlib1g-dev','swig','mongodb','postgresql','libpq-dev','tcpdump','apparmor-utils','python-m2crypto']
+        state: present
+
+    - name: Tcpdump configuration
+      shell: |
+        groupadd pcap
+        usermod -aG pcap kku
+        chgrp pcap /usr/sbin/tcpdump
+        setcap cap_net_raw,cap_net_admin=eip /usr/sbin/tcpdump
+
+    - name: Install Volatility to do forensic on memory dumps
+      shell: |
+        cd ~
+        git clone https://github.com/volatilityfoundation/volatility.git
+        cd volatility
+        python ./setup.py install
+
+    - name: Install Distorm3 Powerful disassembler library for x86/AMD64
+      shell: 
+        sudo pip install distorm3
+   
+    - name: Add group for virtualbox
+      group: 
+        name: vboxusers
+        state: present
+
+    - name: Add user for cuckoo
+      user: 
+        name: kaku
+        state: present
+        groups: sudo,vboxusers
+
+    - name: Add kaku user to virtualbox and KVM groups 
+      shell: |
+        usermod -aG vboxusers kaku
+        #usermod -aG libvirtd kaku
+
+    - name: Upgrade setuptools and cuckoo
+      pip:
+        name: ['setuptools','cuckoo','pip']
+        state: latest
+
+    - name: Create cuckoo working directory
+      file:
+        path: /opt/cuckoo
+        state: directory
+        owner: kaku
+        group: kaku
+
+    - name: Set cuckoo's working directory
+      shell: cuckoo --cwd /tmp/cuckoo init
+
+
+
+
+
+
+
+    
