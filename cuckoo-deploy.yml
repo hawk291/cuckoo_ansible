@@ -42,15 +42,15 @@
         name: vboxusers
         state: present
 
-    - name: Add user for cuckoo
+    - name: Add user for cuckoo sandbox
       user: 
-        name: kaku
+        name: cuckoo
         state: present
         groups: sudo,vboxusers
 
-    - name: Add kaku user to virtualbox and KVM groups 
+    - name: Add cuckoo user to virtualbox and KVM groups 
       shell: |
-        usermod -aG vboxusers kaku
+        usermod -aG vboxusers cuckoo
         #usermod -aG libvirtd kaku
 
     - name: Upgrade setuptools and cuckoo
@@ -62,11 +62,24 @@
       file:
         path: /opt/cuckoo
         state: directory
-        owner: kaku
-        group: kaku
+        owner: cuckoo
+        group: cuckoo
 
-    - name: Set cuckoo's working directory
-      shell: cuckoo --cwd /tmp/cuckoo init
+    - name: Set cucko's working directory (cwd)
+      shell: cuckoo --cwd /opt/cuckoo init
+
+    - name: Download cuckoo signatures
+      shell: cuckoo community
+
+    - name: Enable mongodb
+      shell: |
+        sed -i '45d' /opt/cuckoo/conf/reporting.conf
+        sed '/\[mongodb\]/a enabled = yes' /opt/cuckoo/conf/reporting.conf
+
+    - name: Start the web interface
+      shell: cuckoo web --host 0.0.0.0 --port 8080
+
+
 
 
 
