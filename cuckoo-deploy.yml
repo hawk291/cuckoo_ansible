@@ -77,9 +77,17 @@
         group: cuckoo
 
     - name: Set cuckoo's working directory (cwd)
-      shell: cuckoo --cwd /opt/cuckoo init
-      ignore_errors: yes
+      shell: cuckoo --cwd /opt/cuckoo
 
+    - name: Determine the Cuckoo's CWD
+      lineinfile:
+        path: /root/.bashrc
+        insertafter: EOF
+        line: "{{ item.line }}" 
+      with_items:
+        - { line: 'export CUCKOO=/opt/cuckoo' }
+        - { line: 'cuckoo' }
+       
     - name: Download cuckoo signatures
       shell: |
         cd /opt/cuckoo
@@ -88,7 +96,7 @@
     - name: Enable mongodb
       shell: |
         sed -i '45d' /opt/cuckoo/conf/reporting.conf
-        sed '/\[mongodb\]/a enabled = yes' /opt/cuckoo/conf/reporting.conf
+        sed -i '/\[mongodb\]/a enabled = yes' /opt/cuckoo/conf/reporting.conf
 
 
 #####################  Prepare Postgres database for Cuckoo web interface instead of SQLite DB  #######################
