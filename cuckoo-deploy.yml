@@ -90,7 +90,10 @@
         sed -i '45d' /opt/cuckoo/conf/reporting.conf
         sed '/\[mongodb\]/a enabled = yes' /opt/cuckoo/conf/reporting.conf
 
-      # prepare postgres database for Cuckoo web interface instead of SQLite DB  
+
+#####################  Prepare Postgres database for Cuckoo web interface instead of SQLite DB  #######################
+
+
     - name: Install postgres database driver for Cuckoo
       pip:
         name: psycopg2-binary
@@ -128,6 +131,15 @@
         obj_name: cuckoo
         obj_type: database
       become_user: postgres
+
+    - name: Tell Cuckoo to use Postgres instead of SQLite
+      shell: |
+        sed -i '136d' /opt/cuckoo/conf/cuckoo.conf
+        sed -i '/\[database\]/a connection = postgresql://cuckoo:password@localhost/cuckoo' /opt/cuckoo/conf/cuckoo.conf
+
+
+################### / end of postgres section  ###########################
+
 
     - name: Start the web interface
       shell: cuckoo web --host 0.0.0.0 --port 8080
