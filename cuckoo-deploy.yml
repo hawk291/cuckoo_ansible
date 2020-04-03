@@ -6,9 +6,16 @@
   tasks:
 
     - name: Set time
+      lineinfile:
+        path: /etc/systemd/timesyncd.conf
+        insertafter: \[Time\]
+        line: "{{ item.line }}"
+      with_items:
+        - { line: 'NTP=lu.pool.ntp.org' }
+        - { line: 'FallbackNTP=li.pool.ntp.org' }
+
+    - name: Reboot ntp
       shell: |
-        sed -i '/\[Time\]/a NTP=lu.pool.ntp.org' /etc/systemd/timesyncd.conf
-        sed -i '/\[Time\]/a FallbackNTP=li.pool.ntp.org' /etc/systemd/timesyncd.conf
         systemctl daemon-reload
         timedatectl set-ntp off
         timedatectl set-ntp on
@@ -87,7 +94,10 @@
       with_items:
         - { line: 'export CUCKOO=/opt/cuckoo' }
         - { line: 'cuckoo' }
-       
+ 
+    - name: Apply changes in bashrc, so can be run from custom CWD, i.e. /opt/cuckoo
+      shell: source /root/.bashrc
+
     - name: Download cuckoo signatures
       shell: |
         cd /opt/cuckoo
@@ -148,9 +158,12 @@
 
 ################### / end of postgres section  ###########################
 
+        # TODO Using uWSGI and nginx for production
 
     - name: Start the web interface
-      shell: cuckoo web --host 0.0.0.0 --port 8080
+      shell: cuckoo web --host 0.0.0.0 -p 8080
+
+     
 
 
 
