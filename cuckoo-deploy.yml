@@ -5,19 +5,29 @@
   vars:
   tasks:
 
+    - name: Set time
+      shell: |
+        sed -i '/\[Time\]/a NTP=lu.pool.ntp.org' /etc/systemd/timesyncd.conf
+        sed -i '/\[Time\]/a FallbackNTP=li.pool.ntp.org' /etc/systemd/timesyncd.conf
+        systemctl daemon-reload
+        timedatectl set-ntp off
+        timedatectl set-ntp on
+
     - name: Update cache
       apt:
         update_cache: yes
-        cache_valid_time: 3600      
+        cache_valid_time: 3600
+      ignore_errors: yes
 
     - name: Upgrade packages
       apt: 
-        upgrade: full
+        upgrade: dist
 
-    - name: Install necessary packages
+    - name: Install required packages
       apt:
-        name: ['git','software-properties-common','vim','curl','tree','htop','python-pip','python','python-dev','libffi-dev','libssl-dev','python-virtualenv','python-setuptools','libjpeg-dev','zlib1g-dev','swig','mongodb','postgresql','libpq-dev','tcpdump','apparmor-utils','python-m2crypto']
+        name: ['git','software-properties-common','vim','curl','tree','htop','python-pip','python3-pip','python','python-dev','libffi-dev','libssl-dev','python-virtualenv','python-setuptools','libjpeg-dev','zlib1g-dev','swig','mongodb','postgresql','postgresql-contrib','libpq-dev','tcpdump','apparmor-utils','python-m2crypto','build-essential']
         state: present
+      ignore_errors: yes
 
     - name: Tcpdump configuration
       shell: |
@@ -34,9 +44,10 @@
         python ./setup.py install
 
     - name: Install Distorm3 Powerful disassembler library for x86/AMD64
-      shell: 
-        sudo pip install distorm3
-   
+      pip:
+        name: distorm3 
+        state: latest   
+  
     - name: Add group for virtualbox
       group: 
         name: vboxusers
@@ -65,16 +76,58 @@
         owner: cuckoo
         group: cuckoo
 
-    - name: Set cucko's working directory (cwd)
+    - name: Set cuckoo's working directory (cwd)
       shell: cuckoo --cwd /opt/cuckoo init
+      ignore_errors: yes
 
     - name: Download cuckoo signatures
-      shell: cuckoo community
+      shell: |
+        cd /opt/cuckoo
+        cuckoo community
 
     - name: Enable mongodb
       shell: |
         sed -i '45d' /opt/cuckoo/conf/reporting.conf
         sed '/\[mongodb\]/a enabled = yes' /opt/cuckoo/conf/reporting.conf
+
+      # prepare postgres database for Cuckoo web interface instead of SQLite DB  
+    - name: Install postgres database driver for Cuckoo
+      pip:
+        name: psycopg2-binary
+        state: latest
+
+    - name: Create a postgres database for Cuckoo
+      postgresql_db:
+        name: cuckoo
+        owner: postgres
+        encoding: UTF-8
+      become_user: postgres
+
+    - name: Create a new user/role in postgres
+      postgresql_user:
+        db: cuckoo
+        name: cuckoo
+        password: password
+        role_attr_flags: SUPERUSER
+      become_user: postgres
+
+    - name: Grant all privileges on database cuckoo TO cuckoo user
+      postgresql_privs:
+        db: cuckoo
+        state: present
+        privs: ALL
+        type: database
+        roles: cuckoo
+        grant_option: yes
+      become_user: postgres
+      
+    - name: Reassign all objects in database cuckoo, owned by postgres, to cuckoo user
+      postgresql_owner:
+        db: cuckoo
+        new_owner: cuckoo
+        obj_name: cuckoo
+        obj_type: database
+      become_user: postgres
 
     - name: Start the web interface
       shell: cuckoo web --host 0.0.0.0 --port 8080
